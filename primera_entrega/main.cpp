@@ -1,15 +1,14 @@
 #include <iostream>
-#include <cstdint>
-
+#include <cstdint>// uint64_t y uint8_t
 
 #include <chrono>
 #include <random>
 #include <ctime>
 
-#include <unistd.h>
-#include <sys/wait.h>
+#include <unistd.h>//pipe, fork, write, read, close
+#include <sys/wait.h>//wait para wait(nullptr) q espera a que el proceso hijo termine
 
-#include <limits>
+#include <limits>//std::numeric_limits para obtener el valor maximo de ui
 
 typedef uint64_t ui;
 
@@ -28,12 +27,12 @@ struct Tick {
 };
 
 ui a_ns() {
-    return std::chrono::duration_cast<std::chrono::nanoseconds>(
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(//asegurar q sean nanoseconds
     std::chrono::high_resolution_clock::now().time_since_epoch()).count();
 } //tendremos que reemplazar esto a clock_gettime(CLOCK_MONOTONIC, &ts) para hacer una syscall y q sea mas pro
 
 Tick generar_tick(ui id) {
-    static std::mt19937_64 generar_nums_aleatorios(time(nullptr));//generador de números aleatorios con una semilla aleatoria, solo una vez
+    static std::mt19937_64 generar_nums_aleatorios(time(nullptr));//generador de números aleatorios, solo una vez
     static std::uniform_real_distribution<double> precio_dist(99.0, 101.0);//para vals decimales
     static std::uniform_real_distribution<double> volumen_dist(1.0, 100.0);
     static std::uniform_int_distribution<int> tipo_dist(0, 2);
@@ -51,13 +50,13 @@ Tick generar_tick(ui id) {
 int main(){
     const unsigned int num_ticks = 100000;
 
-    int fd[2];//read write
-    if (pipe(fd) < 0) {
+    int fd[2];//esto es un arreglo de dos enteros, fd[0] para leer y fd[1] para escribir, pipe lo llenará con los file descriptors correspondientes
+    if (pipe(fd) < 0) { 
         std::cerr << "no se creo la pipe" << std::endl;
         return 1;
     }
 
-    int pid = fork();
+    int pid = fork(); //fork crea un nuevo proceso duplicando el proceso actual,
 
     if(pid < 0){
         std::cerr << "no se pudo creo el proceso hijo" << std::endl;
@@ -66,21 +65,19 @@ int main(){
 
     //proceso hijo
     if(pid == 0){//pid del pipe es file descriptor 0
-        close(fd[1]); //NO VOY A ESCRIBIR, SOLO LEER
+        close(fd[1]); //no escribe
         //inicializamos variables para medir latencias ^_^
         Tick t;
         ui total_latency = 0;
-        ui count = 0;
         ui min_latency = std::numeric_limits<ui>::max();
         ui max_latency = 0;
 
-        while (read(fd[0], &t, sizeof(Tick)) > 0) {//read recibe la pipe, la direccion de memoria donde se va a guardar el tick y el tamaño del tick, devuelve el numero de bytes leidos, si es 0 es porque no hay mas datos que leer
+        while (read(fd[0], &t, sizeof(Tick)) > 0) {//read recibe la pipe en modo lectura, la direccion de memoria donde se va a guardar el tick y el tamaño del tick, devuelve el numero de bytes leidos, si es 0 es porque no hay mas datos que leer
 
             ui now = a_ns();
             ui latency = now - t.timestamp_ns;
 
             total_latency += latency;
-            count++;
 
             if (latency < min_latency) min_latency = latency;
             if (latency > max_latency) max_latency = latency;
@@ -89,24 +86,22 @@ int main(){
         close(fd[0]);
 
         if (count > 0) {
-            std::cout << "Mensajes recibidos: " << count << "\n";
             std::cout << "Latencia promedio (ns): " << total_latency / count << "\n";
             std::cout << "Latencia minima (ns): " << min_latency << "\n";
             std::cout << "Latencia maxima (ns): " << max_latency << "\n";
         }
     }
     else {
-        close(fd[0]);//no lee
+        close(fd[0]);//cierra modo lectura en el proceso padre, solo va a escribir
 
-        for (ui i = 0; i < num_ticks; i++) {
+        for (ui i = 0; i < num_ticks; i++){
             Tick t = generar_tick(i);
-            write(fd[1], &t, sizeof(Tick));
+            write(fd[1], &t, sizeof(Tick)); // recibe el file descriptor para escribir, la direccion de memoria del tick a enviar y el tamaño del tick, devuelve el numero de bytes escritos
         }
 
         close(fd[1]); // importante para terminar el read en hijo
         wait(nullptr);
     }
-
 
     return 0;
 }
