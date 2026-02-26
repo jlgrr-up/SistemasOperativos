@@ -104,6 +104,6 @@
   104  history | grep cd >> accept.txt
   105  cat accept.txt
   106  rm accept.txt
-  107  touch accept.txt; ls > accept.txt; history | grep cd >> accept.txt
+  107  touch accept.txt; ls > accept.txt; history | grep ls >> accept.txt
   108  cat accept.txt
   109  history
