@@ -22,10 +22,8 @@
     -message queues (colas de mensajes)
     -sockets (comunicación entre procesos a través de la red, incluso en la misma máquina)
     -memory-mapped files (archivos mapeados en memoria, que permiten compartir datos entre procesos a través de un archivo)
-    -eventfd (un mecanismo de notificación entre procesos que permite a un proceso esperar a que ocurra un evento en otro proceso sin necesidad de hacer una syscall para cada operación de espera)
     -semaforos (un mecanismo de sincronización que permite a los procesos coordinar el acceso a recursos compartidos, aunque no es un método de IPC en sí mismo, puede ser utilizado junto con otros métodos de IPC para mejorar la eficiencia y la sincronización entre procesos)
     
-
     -esto implicará globalizar la función para medir la latencia (main) para que diferentes procesos puedan medirlo sin escribir código de más.
     -contextualizar estos casos en un escenario de mercado real, por ende es necesario construir un orderbook
     -una vez hecho esto, podremos hacer simulaciones (ignorantes) del rendimiento de diferentes métodos de IPC en un escenario de mercado real, 
@@ -117,7 +115,7 @@ int pipeIPC(){
             std::cout << "Latencia maxima (ns): " << max_latency << "\n";
         }
     }
-    else {
+    else {//padre
         close(fd[0]);//no lee
 
         for (ui i = 0; i < num_ticks; i++) {
@@ -128,8 +126,6 @@ int pipeIPC(){
         close(fd[1]); // importante para terminar el read en hijo
         wait(nullptr);
     }
-
-
     return 0;
 }
  
