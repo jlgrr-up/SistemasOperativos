@@ -1,3 +1,5 @@
+#pragma region includes
+
 #include <cstdint>
 #include <limits>
 
@@ -12,6 +14,12 @@
 //4 mssg queues
 #include <sys/ipc.h>
 #include <sys/msg.h>
+
+//4 shared memory
+#include <sys/mman.h>
+#include <fcntl.h>
+
+#pragma endregion
 
 #pragma region estructuras_y_generales
 
@@ -57,19 +65,35 @@ struct Measurement {
 struct SharedBuffer {
     long msg_type;
     Tick tick;
-}; //4 queues and shared mmry
+}; //4 queues 
+
+#define num_buffer 1024
+
+struct SharedMemoryBuffer {
+    Tick ticks[num_buffer];
+    ui in;
+    ui out; 
+    bool done; //para que el consumidor sepa cuando el productor terminó de producir, aunque también se podría hacer con un mensaje especial como en las colas de mensajes
+
+    SharedMemoryBuffer() {
+        in = 0;
+        out = 0;
+        done = false;
+    }
+};
+
 
 
 #pragma endregion
-
 
 
 class MecanismosIPC {
 private:
     static ui a_ns(clockid_t);
     static void print_measurement(int, Measurement, Measurement);
+    static Tick generar_tick(ui);
 public: 
     static int pipeIPC();
     static int msgQueueIPC();
-    static Tick generar_tick(ui);
+    static int sharedMemory();    
 };

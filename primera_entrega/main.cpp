@@ -44,7 +44,8 @@ int main(){
         std::cout << "Seleccione el método de IPC a probar:\n";
         std::cout << "1. Pipes\n";
         std::cout << "2. Message Queues\n";
-        std::cout << "3. Salir\n";
+        std::cout << "3. Shared Memory\n";
+        std::cout << "4. Salir\n";
         std::cout << "Ingrese su opción: ";
         std::cin >> entrada_s;
         entrada = std::stoi(entrada_s);
@@ -57,6 +58,9 @@ int main(){
                 MecanismosIPC::msgQueueIPC();
                 break;
             case 3:
+                MecanismosIPC::sharedMemory();
+                break;
+            case 4:
                 cont = false;
                 break;
             default:

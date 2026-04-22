@@ -184,3 +184,77 @@ int MecanismosIPC::msgQueueIPC(){
 
     return 0;
 }
+
+int MecanismosIPC::sharedMemory() {
+    const char* shm_name = "/hft_shm";//create and readwrite
+    int shm_fd = shm_open(shm_name, O_CREAT | O_RDWR, 0666);
+    ftruncate(shm_fd, sizeof(SharedMemoryBuffer));
+
+    SharedMemoryBuffer* shm = (SharedMemoryBuffer*)mmap(
+        0, //direccion de memoria, el sistema decide
+        sizeof(SharedMemoryBuffer), //tamaño del mapeo
+        PROT_READ | PROT_WRITE, //protecciones de lectura y escritura
+        MAP_SHARED, //compartido entre procesos
+        shm_fd,//file descriptor de la memoria compartida
+        0); //offset, no nos interesa
+    
+    int pid = fork();
+
+    if (pid < 0) {
+        std::cerr << "no se pudo creo el proceso hijo" << std::endl;
+        return 1;
+    }
+
+    if(pid == 0){
+        Measurement m_monotonic, m_raw;
+        ui count = 0;
+
+        while(true){
+            if (shm->in == shm->out) {
+                if (shm->done) break;
+                continue;
+                }
+            Tick t = shm->ticks[shm->out];
+            shm->out = (shm->out + 1) % num_buffer; // circular buffer
+            
+            ui now_monotonic = MecanismosIPC::a_ns(CLOCK_MONOTONIC);
+            ui now_raw = MecanismosIPC::a_ns(CLOCK_MONOTONIC_RAW);
+            
+            ui latency_monotonic = now_monotonic - t.timestamp_ns.mono_ns;
+            ui latency_raw = now_raw - t.timestamp_ns.raw_ns;
+        
+            m_monotonic.total_latency += latency_monotonic;
+            m_raw.total_latency += latency_raw;
+            count++;
+
+            if (latency_monotonic < m_monotonic.min_latency) m_monotonic.min_latency = latency_monotonic;   
+            if (latency_monotonic > m_monotonic.max_latency) m_monotonic.max_latency = latency_monotonic;   
+            if (latency_raw < m_raw.min_latency) m_raw.min_latency = latency_raw;
+            if (latency_raw > m_raw.max_latency) m_raw.max_latency = latency_raw;
+        }
+        
+        if (count > 0) MecanismosIPC::print_measurement(count, m_monotonic, m_raw);
+        _exit(0); //i love killing children 
+    }
+    else{
+        for (ui i = 0; i < num_ticks; i++) {
+            int next = (shm->in + 1) % num_buffer;
+
+            // buffer lleno
+            while (next == shm->out) {
+                continue;
+            }
+
+            shm->ticks[shm->in] = MecanismosIPC::generar_tick(i);
+            shm->in = next;
+        }
+        shm->done = true;
+
+        wait(nullptr);
+
+        munmap(shm, sizeof(SharedMemoryBuffer));
+        shm_unlink(shm_name); //eliminar la memoria compartida
+        
+    }
+    return 0;
+}
