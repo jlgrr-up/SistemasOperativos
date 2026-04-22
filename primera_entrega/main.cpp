@@ -43,7 +43,8 @@ int main(){
         std::cout << "PID: " << getpid() << "\n";
         std::cout << "Seleccione el método de IPC a probar:\n";
         std::cout << "1. Pipes\n";
-        std::cout << "2. Salir\n";
+        std::cout << "2. Message Queues\n";
+        std::cout << "3. Salir\n";
         std::cout << "Ingrese su opción: ";
         std::cin >> entrada_s;
         entrada = std::stoi(entrada_s);
@@ -53,6 +54,9 @@ int main(){
                 MecanismosIPC::pipeIPC();
                 break;
             case 2:
+                MecanismosIPC::msgQueueIPC();
+                break;
+            case 3:
                 cont = false;
                 break;
             default:

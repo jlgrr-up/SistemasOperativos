@@ -30,8 +30,18 @@ ui MecanismosIPC::a_ns(clockid_t clk) {
     return (ui)(ts.tv_sec) * 1000000000 + ts.tv_nsec;
 }
 
-
-
+void MecanismosIPC::print_measurement(int count, Measurement m_monotonic, Measurement m_raw) {
+    linea;
+    std::cout << "Mensajes recibidos: " << count << "\n";
+    std::cout << std::endl;
+    std::cout << "Latencia promedio monotonic clock (ns): " << m_monotonic.total_latency / count << "\n";
+    std::cout << "Latencia minima monotonic clock(ns): " << m_monotonic.min_latency << "\n";
+    std::cout << "Latencia maxima monotonic clock(ns): " << m_monotonic.max_latency << "\n";
+    std::cout << std::endl;
+    std::cout << "Latencia promedio raw clock (ns): " << m_raw.total_latency / count << "\n";
+    std::cout << "Latencia minima raw clock(ns): " << m_raw.min_latency << "\n";
+    std::cout << "Latencia maxima raw clock(ns): " << m_raw.max_latency << "\n";
+}
 
 int MecanismosIPC::pipeIPC(){
     
@@ -75,20 +85,8 @@ int MecanismosIPC::pipeIPC(){
 
         close(fd[0]);
 
-        if (count > 0) {
-            linea;
-            std::cout << "Mensajes recibidos: " << count << "\n";
-            std::cout << std::endl;
-            std::cout << "Latencia promedio monotonic clock (ns): " << m_monotonic.total_latency / count << "\n";
-            std::cout << "Latencia minima monotonic clock(ns): " << m_monotonic.min_latency << "\n";
-            std::cout << "Latencia maxima monotonic clock(ns): " << m_monotonic.max_latency << "\n";
-            std::cout << std::endl;
-            std::cout << "Latencia promedio raw clock (ns): " << m_raw.total_latency / count << "\n";
-            std::cout << "Latencia minima raw clock(ns): " << m_raw.min_latency << "\n";
-            std::cout << "Latencia maxima raw clock(ns): " << m_raw.max_latency << "\n";
+        if (count > 0) MecanismosIPC::print_measurement(count, m_monotonic, m_raw);
         
-            
-        }
         _exit(0);//lowkirkenuinly kill child
  
     }
@@ -97,7 +95,7 @@ int MecanismosIPC::pipeIPC(){
         close(fd[0]);//no lee
 
         for (ui i = 0; i < num_ticks; i++) {
-            Tick t = generar_tick(i);
+            Tick t = MecanismosIPC::generar_tick(i);
             write(fd[1], &t, sizeof(Tick));
         }
         close(fd[1]); // importante para terminar el read en hijo
@@ -107,4 +105,82 @@ int MecanismosIPC::pipeIPC(){
     return 0;
 }
  
+int MecanismosIPC::msgQueueIPC(){
+    key_t key;
+    int msgid;
 
+    key = ftok("furry_witch_hunt", 67);
+    msgid = msgget(key, 0666 | IPC_CREAT);
+
+    if(msgid < 0){
+        std::cerr << "no se pudo crear la cola de mensajes" << std::endl;
+        return 1;
+    }
+
+    int pid = fork();
+    if(pid < 0){
+        std::cerr << "no se pudo creo el proceso hijo" << std::endl;
+        return 1;
+    }
+
+    if (pid == 0){
+        SharedBuffer message;
+
+        Tick t;
+        Measurement m_monotonic, m_raw;
+        unsigned int count = 0;
+        
+        while(true){
+            
+            if(msgrcv(msgid, &message, sizeof(Tick), 1, 0) < 0){
+                break;
+            }
+            t = message.tick;
+            if (t.id == -1) break; // mensaje de fin
+
+            ui now_monotonic = MecanismosIPC::a_ns(CLOCK_MONOTONIC);
+            ui now_raw = MecanismosIPC::a_ns(CLOCK_MONOTONIC_RAW);
+            
+            ui latency_monotonic = now_monotonic - t.timestamp_ns.mono_ns;
+            ui latency_raw = now_raw - t.timestamp_ns.raw_ns;
+
+            
+            m_monotonic.total_latency += latency_monotonic;
+            m_raw.total_latency += latency_raw;
+            count++;
+
+            if (latency_monotonic < m_monotonic.min_latency) m_monotonic.min_latency = latency_monotonic;
+            if (latency_monotonic > m_monotonic.max_latency) m_monotonic.max_latency = latency_monotonic;
+            if (latency_raw < m_raw.min_latency) m_raw.min_latency = latency_raw;
+            if (latency_raw > m_raw.max_latency) m_raw.max_latency = latency_raw;
+        }
+
+        if (count > 0) MecanismosIPC::print_measurement(count, m_monotonic, m_raw);
+        
+
+        _exit(0);//again, lowkirkenuinly kill child
+    }//hijo
+    else{//padre
+        SharedBuffer message;
+        message.msg_type = 1; // tipo de mensaje
+        ui counter = 0;
+        for (ui i = 0; i < num_ticks - 1; i++) {
+            Tick t = MecanismosIPC::generar_tick(i);
+            message.tick = t;
+            msgsnd(msgid, &message, sizeof(Tick), 0);
+            std::cout << "Enviado tick con id: " << counter << "\n";
+            counter++;
+        }
+        Tick end;
+        end.id = -1;
+        message.tick = end;
+        msgsnd(msgid, &message, sizeof(Tick), 0);
+
+        wait(nullptr);
+
+        msgctl(msgid, IPC_RMID, nullptr); // eliminar la cola de mensajes
+
+    }
+
+    return 0;
+}

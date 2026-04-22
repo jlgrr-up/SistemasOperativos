@@ -9,6 +9,10 @@
 
 #include <cstdlib>
 
+//4 mssg queues
+#include <sys/ipc.h>
+#include <sys/msg.h>
+
 #pragma region estructuras_y_generales
 
 #define linea std::cout << std::string(20, '-') << std::endl
@@ -49,13 +53,12 @@ struct Measurement {
     }
 };
 
-/*
+
 struct SharedBuffer {
-    Tick ticks[num_ticks];
-    volatile unsigned short write_index;
-    volatile unsigned short read_index;
-};
-*/
+    long msg_type;
+    Tick tick;
+}; //4 queues and shared mmry
+
 
 #pragma endregion
 
@@ -64,8 +67,9 @@ struct SharedBuffer {
 class MecanismosIPC {
 private:
     static ui a_ns(clockid_t);
+    static void print_measurement(int, Measurement, Measurement);
 public: 
     static int pipeIPC();
-    
+    static int msgQueueIPC();
     static Tick generar_tick(ui);
 };
