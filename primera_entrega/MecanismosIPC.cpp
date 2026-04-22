@@ -210,12 +210,12 @@ int MecanismosIPC::sharedMemory() {
         ui count = 0;
 
         while(true){
-            if (shm->in == shm->out) {
-                if (shm->done) break;
+            if (shm->in == shm->out) { // buffer vacío, no hay ticks para consumir
+                if (shm->done) break; //si el productor terminó de producir y el buffer está vacío, terminamos de consumir
                 continue;
                 }
-            Tick t = shm->ticks[shm->out];
-            shm->out = (shm->out + 1) % num_buffer; // circular buffer
+            Tick t = shm->ticks[shm->out]; // consumir el tick
+            shm->out = (shm->out + 1) % num_buffer; // circular buffer, avanzamos el índice de salida
             
             ui now_monotonic = MecanismosIPC::a_ns(CLOCK_MONOTONIC);
             ui now_raw = MecanismosIPC::a_ns(CLOCK_MONOTONIC_RAW);
@@ -238,21 +238,21 @@ int MecanismosIPC::sharedMemory() {
     }
     else{
         for (ui i = 0; i < num_ticks; i++) {
-            int next = (shm->in + 1) % num_buffer;
+            int next = (shm->in + 1) % num_buffer; // siguiente posición de escritura, circular buffer
 
             // buffer lleno
-            while (next == shm->out) {
-                continue;
+            while (next == shm->out) { // si el siguiente índice de escritura es igual al índice de lectura, el buffer está lleno
+                continue; // esperamos a que el consumidor consuma algún tick para liberar espacio
             }
 
-            shm->ticks[shm->in] = MecanismosIPC::generar_tick(i);
-            shm->in = next;
+            shm->ticks[shm->in] = MecanismosIPC::generar_tick(i); // escribir el tick en la posición actual de escritura
+            shm->in = next; // avanzar el índice de escritura
         }
-        shm->done = true;
+        shm->done = true; // señalamos que el productor terminó de producir, para que el consumidor pueda terminar de consumir lo que queda en el buffer y luego terminar también
 
         wait(nullptr);
 
-        munmap(shm, sizeof(SharedMemoryBuffer));
+        munmap(shm, sizeof(SharedMemoryBuffer)); //desmapear la memoria compartida del espacio de direcciones del proceso
         shm_unlink(shm_name); //eliminar la memoria compartida
         
     }
