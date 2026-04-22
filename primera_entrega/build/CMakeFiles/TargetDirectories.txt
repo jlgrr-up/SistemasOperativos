@@ -1,0 +1,3 @@
+/home/josis/cuarto/SO/primera_entrega/build/CMakeFiles/analyzer.dir
+/home/josis/cuarto/SO/primera_entrega/build/CMakeFiles/edit_cache.dir
+/home/josis/cuarto/SO/primera_entrega/build/CMakeFiles/rebuild_cache.dir

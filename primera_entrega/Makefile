@@ -1,5 +1,6 @@
-build:
-	mkdir build; cd build; cmake ..; make
+build-a:
+	mkdir -p build
+	cd build && cmake .. && make
 
-run: 
-	cd build; ./analyzer
+run-a:
+	cd build && ./analyzer

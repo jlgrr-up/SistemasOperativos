@@ -131,7 +131,7 @@ int MecanismosIPC::msgQueueIPC(){
         unsigned int count = 0;
         
         while(true){
-            
+            //std::cout << "holi" << std::endl;
             if(msgrcv(msgid, &message, sizeof(Tick), 1, 0) < 0){
                 break;
             }
@@ -168,7 +168,7 @@ int MecanismosIPC::msgQueueIPC(){
             Tick t = MecanismosIPC::generar_tick(i);
             message.tick = t;
             msgsnd(msgid, &message, sizeof(Tick), 0);
-            std::cout << "Enviado tick con id: " << counter << "\n";
+            //std::cout << "Enviado tick con id: " << counter << "\n";
             counter++;
         }
         Tick end;
