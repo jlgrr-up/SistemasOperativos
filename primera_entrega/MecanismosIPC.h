@@ -61,21 +61,20 @@ struct Measurement {
     }
 };
 
-
 struct SharedBuffer {
     long msg_type;
     Tick tick;
 }; //4 queues 
 
-#define num_buffer 1024
+#define num_buffer 2048
 
-struct SharedMemoryBuffer {
+struct SharedMemoryBufferFake {
     Tick ticks[num_buffer];
     ui in;
     ui out; 
     bool done; //para que el consumidor sepa cuando el productor terminó de producir, aunque también se podría hacer con un mensaje especial como en las colas de mensajes
 
-    SharedMemoryBuffer() {
+    SharedMemoryBufferFake() {
         in = 0;
         out = 0;
         done = false;
@@ -83,17 +82,17 @@ struct SharedMemoryBuffer {
 };
 
 
-
 #pragma endregion
 
 
 class MecanismosIPC {
 private:
-    static ui a_ns(clockid_t);
     static void print_measurement(int, Measurement, Measurement);
     static Tick generar_tick(ui);
 public: 
+    static ui a_ns(clockid_t);
     static int pipeIPC();
     static int msgQueueIPC();
+    static int sharedMemoryFake();    
     static int sharedMemory();    
 };

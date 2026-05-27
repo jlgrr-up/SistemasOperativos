@@ -185,14 +185,14 @@ int MecanismosIPC::msgQueueIPC(){
     return 0;
 }
 
-int MecanismosIPC::sharedMemory() {
+int MecanismosIPC::sharedMemoryFake() {
     const char* shm_name = "/hft_shm";//create and readwrite
     int shm_fd = shm_open(shm_name, O_CREAT | O_RDWR, 0666);
-    ftruncate(shm_fd, sizeof(SharedMemoryBuffer));
+    ftruncate(shm_fd, sizeof(SharedMemoryBufferFake));
 
-    SharedMemoryBuffer* shm = (SharedMemoryBuffer*)mmap(
+    SharedMemoryBufferFake* shm = (SharedMemoryBufferFake*)mmap(
         0, //direccion de memoria, el sistema decide
-        sizeof(SharedMemoryBuffer), //tamaño del mapeo
+        sizeof(SharedMemoryBufferFake), //tamaño del mapeo
         PROT_READ | PROT_WRITE, //protecciones de lectura y escritura
         MAP_SHARED, //compartido entre procesos
         shm_fd,//file descriptor de la memoria compartida
@@ -252,9 +252,70 @@ int MecanismosIPC::sharedMemory() {
 
         wait(nullptr);
 
+        munmap(shm, sizeof(SharedMemoryBufferFake)); //desmapear la memoria compartida del espacio de direcciones del proceso
+        shm_unlink(shm_name); //eliminar la memoria compartida
+        
+    }
+    return 0;
+}
+
+/*
+int MecanismosIPC::sharedMemory() {
+    const char* shm_name = "/hft_shm";//create and readwrite
+    int shm_fd = shm_open(shm_name, O_CREAT | O_RDWR, 0666);
+    ftruncate(shm_fd, sizeof(SharedMemoryBuffer));
+
+    SharedMemoryBuffer* shm = (SharedMemoryBuffer*)mmap(
+        0, //direccion de memoria, el sistema decide
+        sizeof(SharedMemoryBuffer), //tamaño del mapeo
+        PROT_READ | PROT_WRITE, //protecciones de lectura y escritura
+        MAP_SHARED, //compartido entre procesos
+        shm_fd,//file descriptor de la memoria compartida
+        0); //offset, no nos interesa
+    
+    int pid = fork();
+
+    if (pid < 0) {
+        std::cerr << "no se pudo creo el proceso hijo" << std::endl;
+        return 1;
+    }
+
+    if(pid == 0){
+
+        while(true){//este es el parser del ITCH
+
+            if (shm->in == shm->out) { // buffer vacío, no hay ticks para consumir
+                if (shm->done) break; //si el productor terminó de producir y el buffer está vacío, terminamos de consumir
+                continue;
+                }
+            PacketRaw p = shm->packets[shm->out]; // consumir el paquete
+            shm->packets[shm->out]
+            shm->out = (shm->out + 1) % num_buffer; // circular buffer, avanzamos el índice de salida
+            
+        }
+        
+        _exit(0); //i love killing children 
+    }
+    else{
+        for (ui i = 0; i < num_ticks; i++) {
+            int next = (shm->in + 1) % num_buffer; // siguiente posición de escritura, circular buffer
+
+            // buffer lleno
+            while (next == shm->out) { // si el siguiente índice de escritura es igual al índice de lectura, el buffer está lleno
+                continue; // esperamos a que el consumidor consuma algún tick para liberar espacio
+            }
+
+            shm->packets[shm->in] = MecanismosIPC::generar_tick(i); // escribir el tick en la posición actual de escritura
+            shm->in = next; // avanzar el índice de escritura
+        }
+        shm->done = true; // señalamos que el productor terminó de producir, para que el consumidor pueda terminar de consumir lo que queda en el buffer y luego terminar también
+
+        wait(nullptr);
+
         munmap(shm, sizeof(SharedMemoryBuffer)); //desmapear la memoria compartida del espacio de direcciones del proceso
         shm_unlink(shm_name); //eliminar la memoria compartida
         
     }
     return 0;
 }
+*/
